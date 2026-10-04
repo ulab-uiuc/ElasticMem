@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.png" alt="ElasticMem Logo" width="420">
+  <img src="assets/logo.svg" alt="ElasticMem Logo" width="420">
 </div>
 
 
@@ -11,13 +11,12 @@
 
 <div align="center">
   <p>
-    <a href='https://arxiv.org/abs/XXXX.XXXXX'><img src='https://img.shields.io/badge/arXiv-XXXX.XXXXX-ff6b6b?style=for-the-badge&logo=arxiv&logoColor=white'></a>
-    <a href='https://ft2023.github.io/ElasticMem/'><img src='https://img.shields.io/badge/Project-Page-00d9ff?style=for-the-badge&logo=github&logoColor=white'></a>
-    <a href="https://huggingface.co/collections/ft2023/elasticmem"><img src="https://img.shields.io/badge/HuggingFace-Collection-FFD21E?style=for-the-badge&logo=huggingface&logoColor=FFD21E" alt="HuggingFace Collection"></a>
+    <a href='https://arxiv.org/abs/2605.30690'><img src='https://img.shields.io/badge/arXiv-2605.30690-ff6b6b?style=for-the-badge&logo=arxiv&logoColor=white'></a>
+    <a href="https://huggingface.co/papers/2605.30690"><img src="https://img.shields.io/badge/HuggingFace-Paper-FFD21E?style=for-the-badge&logo=huggingface&logoColor=FFD21E" alt="HuggingFace Paper"></a>
     <br>
-    <a href="https://github.com/ft2023/ElasticMem/stargazers"><img src='https://img.shields.io/github/stars/ft2023/ElasticMem?color=f1e05a&style=for-the-badge&logo=star&logoColor=white' /></a>
-    <a href="https://github.com/ft2023/ElasticMem/forks"><img src='https://img.shields.io/github/forks/ft2023/ElasticMem?color=2ea44f&style=for-the-badge&logo=git&logoColor=white' /></a>
-    <a href="https://github.com/ft2023/ElasticMem/issues"><img src='https://img.shields.io/github/issues/ft2023/ElasticMem?color=d73a49&style=for-the-badge&logo=github&logoColor=white' /></a>
+    <a href="https://github.com/ulab-uiuc/ElasticMem/stargazers"><img src='https://img.shields.io/github/stars/ulab-uiuc/ElasticMem?color=f1e05a&style=for-the-badge&logo=star&logoColor=white' /></a>
+    <a href="https://github.com/ulab-uiuc/ElasticMem/forks"><img src='https://img.shields.io/github/forks/ulab-uiuc/ElasticMem?color=2ea44f&style=for-the-badge&logo=git&logoColor=white' /></a>
+    <a href="https://github.com/ulab-uiuc/ElasticMem/issues"><img src='https://img.shields.io/github/issues/ulab-uiuc/ElasticMem?color=d73a49&style=for-the-badge&logo=github&logoColor=white' /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-Apache--2.0-2EA44F?style=for-the-badge" alt="License"></a>
   </p>
 </div>
@@ -57,7 +56,7 @@ ElasticMem closes that gap. It builds an offline latent memory bank of retrieval
 
 ## 📰 News
 
-- 🚀 **[2026-05]**: **ElasticMem** is released — long-term memory as an *elastic* latent resource: retrieved adaptively, budgeted per query, and optimized end-to-end with task reward.
+- 🚀 **[2026-10]**: **ElasticMem** is officially released — long-term memory as an *elastic* latent resource: retrieved adaptively from the reasoner's own hidden state, budgeted per query by a learned policy, and optimized end-to-end with task reward 🧠. Paper, code, and the five-benchmark MemorySuite protocol are all available.
 
 
 
@@ -86,7 +85,7 @@ ElasticMem closes that gap. It builds an offline latent memory bank of retrieval
 
 ```bash
 # Clone the repository
-git clone https://github.com/ft2023/ElasticMem
+git clone https://github.com/ulab-uiuc/ElasticMem
 cd ElasticMem
 
 # Create and activate virtual environment
@@ -278,10 +277,10 @@ We thank the authors and maintainers of **[PersonaMem](https://huggingface.co/da
 ## 📚 Citation
 
 ```bibtex
-@article{elasticmem2026,
+@article{feng2026elasticmem,
   title={ElasticMem: Latent Memory as a Learnable Resource for LLM Agents},
-  author={TBD},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
+  author={Feng, Tao and Ye, Chongrui and Yu, Fangxu and Luo, Tianyang and Xu, Jingjun and Xu, Xueqiang and Zhang, Haozhen and Zhang, Weizhi and Lei, Zijie and You, Jiaxuan},
+  journal={arXiv preprint arXiv:2605.30690},
   year={2026}
 }
 ```
