@@ -1,0 +1,29 @@
+# runtime caches / build artifacts
+cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# checkpoints / logs / sweeps
+checkpoints/
+wandb/
+logs/
+*.pt
+*.bin
+*.safetensors
+
+# results live with each (method, checkpoint) pair
+results/
+*.json.tmp
+
+# datasets are downloaded, not committed
+data/*.json
+data/*.jsonl
+data/*.csv
+alfworld_il/data/*.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp

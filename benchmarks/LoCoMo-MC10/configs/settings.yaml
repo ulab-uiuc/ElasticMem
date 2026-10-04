@@ -1,0 +1,77 @@
+# LoCoMo-MC10 — exact reproducible settings.
+
+dataset:
+  name: LoCoMo-MC10
+  hf_repo:    Percena/locomo-mc10
+  rel_path:   data/locomo_mc10.json
+  num_choices: 10                       # MC (a)..(j)
+
+split:
+  splitter: by_sorted_conversation_id   # MemSkill convention
+  train_convs: 6                        # first 6
+  val_convs:   2                        # middle 2 (often unused)
+  test_convs:  2                        # last 2
+  unit:        conversation
+
+model:
+  base_model:  "Qwen/Qwen2.5-3B-Instruct"   # or "Qwen/Qwen2.5-1.5B-Instruct"
+  hidden_size: 2048
+  torch_dtype: bfloat16
+
+retrieval:
+  chunker:           user_assistant_pair_per_session
+  chunk_encoder:     reasoner_last_token
+  query:             question_first_token_after
+  top_z:             20                       # default; LoCoMo has many chunks per conv
+  n_tokens_min:      1
+  n_tokens_max:      20
+  max_hidden_cache:  20
+  max_chunk_length:  2048
+  cache_dir:         ./cache/chunk_embeddings_locomo_mc10
+
+prompt:
+  instruction: |
+    You MUST pick exactly one option from (a) to (j) — one of them is
+    guaranteed to be correct. Do NOT say "not answerable", "I don't
+    know", or refuse. If uncertain, make your best guess. Output exactly
+    one token in the form (a), (b), (c), (d), (e), (f), (g), (h), (i),
+    or (j).
+  fields_order: [question, retrieval_gate, retrieved_chunks, instruction_plus_options, answer]
+
+generation:
+  max_new_tokens:   5
+  train:
+    temperature:    1.0
+    top_p:          1.0
+    num_generations: 8
+    sampling:       multinomial
+  eval:
+    temperature:    0.0
+    sampling:       greedy
+
+train:
+  optimizer:        AdamW
+  lr:               2.0e-5
+  weight_decay:     0.0
+  scheduler:        CosineAnnealingLR
+  num_epochs:       5
+  batch_size:       1
+  grpo:
+    num_generations: 8
+    epsilon:        0.2
+    policy_entropy_coef: 0.001
+    num_grpo_iters: 1
+  lora:
+    r:              32
+    alpha:          64
+    dropout:        0.1
+    target_modules: "q_proj,k_proj,v_proj,o_proj"
+
+reward:
+  type: letter_match_aj
+  partial_credit: false
+
+logging:
+  results_dir:        ./results
+  default_filename:   eval_test.json
+  store_full_prompt:  true

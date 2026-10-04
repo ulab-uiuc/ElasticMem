@@ -1,0 +1,104 @@
+# ALFWorld — exact reproducible settings.
+
+dataset:
+  name: ALFWorld
+  alfworld_data_root: ${ALFWORLD_DATA}        # set in env, e.g. ~/.cache/alfworld
+  layer1:                                     # expert trajectory replay (v2)
+    train_offline:    ./data/alfworld_train_offline_v2.json
+    eval_seen:        ./data/alfworld_expert_eval_in_distribution_v2.json
+    eval_unseen:      ./data/alfworld_expert_eval_out_of_distribution_v2.json
+  layer2:                                     # LLM skill cards
+    skill_cards:      ./data/alfworld_skill_cards.json   # regenerate, not shipped
+  task_types:
+    - pick_and_place_simple
+    - pick_clean_then_place_in_recep
+    - pick_heat_then_place_in_recep
+    - pick_cool_then_place_in_recep
+    - look_at_obj_in_light
+    - pick_two_obj_and_place
+
+split:
+  layer1:
+    splitter:     by_trajectory
+    memory_ratio: 0.8                        # M pool fraction
+    seed:         42
+  layer2_em_holdout: 0.05                    # internal EM-monitor held-out
+  layer3:                                    # env-success deployment eval
+    valid_seen:   140
+    valid_unseen: 134
+    no_overlap_with: [M, T, em_holdout]
+
+model:
+  base_model:  "Qwen/Qwen2.5-3B-Instruct"   # or "Qwen/Qwen2.5-1.5B-Instruct"
+  hidden_size: 2048
+  torch_dtype: bfloat16
+
+retrieval:
+  chunk_source:      layer2_skill_cards
+  chunk_text_format: "[{task_type}] {summary}"
+  chunk_encoder:     reasoner_last_token
+  query:             objective                  # task goal string
+  retrieval_freq:    per_episode                # compute once at env.reset()
+  top_z:             10
+  n_tokens_min:      1
+  n_tokens_max:      20
+  max_hidden_cache:  20
+  max_chunk_length:  512
+  cache_dir:         ./cache/chunk_embeddings_alfworld_il
+
+prompt:
+  history_steps:    5                          # MUST match between train and eval
+  system_instruction: |
+    You are controlling a text-based ALFWorld environment. Choose the
+    NEXT action as ONE admissible command string. Output only the
+    command, copied verbatim from the admissible list.
+  fields_order: [objective, retrieval_gate, retrieved_chunks, instruction_plus_options, action]
+
+generation:
+  max_new_tokens:    16
+  train:
+    temperature:     1.0
+    top_p:           1.0
+    num_generations: 4
+    sampling:        multinomial
+  eval:
+    temperature:     0.0
+    sampling:        greedy
+  env:                                         # deployment-only knobs
+    max_steps:         30
+    per_game_timeout:  240   # seconds; SIGALRM hard-aborts a game
+
+train:
+  optimizer:        AdamW
+  lr:               2.0e-5
+  weight_decay:     0.0
+  scheduler:        CosineAnnealingLR
+  num_epochs:       3
+  batch_size:       1
+  grpo:
+    num_generations: 4
+    epsilon:        0.2
+    policy_entropy_coef: 0.001
+    num_grpo_iters: 1
+  lora:
+    r:              32
+    alpha:          64
+    dropout:        0.1
+    target_modules: "q_proj,k_proj,v_proj,o_proj"
+
+reward:
+  recipe: snap_strict                         # "string_tiered" or "snap_strict"
+  string_tiered:
+    exact:        1.0
+    prefix:       0.7
+    token_lcp:    0.5    # multiplied by ratio
+  snap_strict:
+    use_admissible_snap: true
+    binary:              true                 # 1.0 if snap == gold else 0.0
+
+logging:
+  results_dir:        ./results
+  default_seen:       eval_seen.json
+  default_unseen:     eval_unseen.json
+  store_full_prompt:  true
+  per_episode_token_aggregation: sum_over_steps
