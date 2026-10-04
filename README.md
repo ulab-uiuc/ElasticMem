@@ -11,6 +11,7 @@
 
 <div align="center">
   <p>
+    <a href='https://ulab-uiuc.github.io/ElasticMem/'><img src='https://img.shields.io/badge/Project-Page-00d9ff?style=for-the-badge&logo=github&logoColor=white'></a>
     <a href='https://arxiv.org/abs/2605.30690'><img src='https://img.shields.io/badge/arXiv-2605.30690-ff6b6b?style=for-the-badge&logo=arxiv&logoColor=white'></a>
     <a href="https://huggingface.co/papers/2605.30690"><img src="https://img.shields.io/badge/HuggingFace-Paper-FFD21E?style=for-the-badge&logo=huggingface&logoColor=FFD21E" alt="HuggingFace Paper"></a>
     <br>
