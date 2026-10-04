@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ElasticMem learns to use long-term memory as an elastic latent resource: query-conditioned retrieval from the reasoner's hidden state, a learned per-memory latent budget, and end-to-end GRPO training.">
+    <meta name="keywords" content="LLM Agents, Agent Memory, Latent Memory, Long-term Memory, Reinforcement Learning, GRPO">
+    <title>ElasticMem: Latent Memory as a Learnable Resource for LLM Agents</title>
+
+    <meta property="og:title" content="ElasticMem: Latent Memory as a Learnable Resource for LLM Agents">
+    <meta property="og:description" content="+26.2% / +24.6% weighted QA accuracy and +66.3% / +27.2% ALFWorld success over the strongest baselines (Qwen2.5-3B / 7B), with the lowest ALFWorld token consumption.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="./static/images/overview.png">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" href="./static/images/favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="stylesheet" href="./static/css/index.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="./static/js/index.js"></script>
+
+    <style>
+        .results-table {
+            margin: 0 auto;
+            /* `separate` (not `collapse`) so the label column can be sticky on
+               narrow screens -- Chrome ignores position:sticky on collapsed cells. */
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        /* Bulma ships `table td:not([align])` at specificity (0,1,2), so these
+           need `tr` in the selector to actually win. */
+        .results-table tr th, .results-table tr td {
+            padding: 8px 14px;
+            text-align: center;
+            vertical-align: middle;
+            border-bottom: 1px solid #dbdbdb;
+        }
+        .results-table thead th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #f6f9fc 0%, #eef2f7 100%);
+            border-radius: 8px;
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid #3273dc;
+        }
+        .highlight-box .stat {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #3273dc;
+        }
+        .highlight-box .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .highlight-box .stat-desc {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 0.35rem;
+            line-height: 1.4;
+        }
+
+        /* ---------- Paper gallery ---------- */
+        .gallery-tabs {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .gallery-tab {
+            padding: 0.5rem 1.1rem;
+            border-radius: 9999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .gallery-tab.active {
+            background-color: #3273dc;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(50, 115, 220, 0.3);
+        }
+        .gallery-tab:not(.active) {
+            background-color: #f1f1f1;
+            color: #888;
+        }
+        .gallery-tab:not(.active):hover {
+            background-color: #e2e6ea;
+            color: #555;
+        }
+        .gallery-tab .tab-count {
+            opacity: 0.75;
+            font-weight: 600;
+            margin-left: 0.3rem;
+        }
+
+        .selector-toolbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .paper-search {
+            position: relative;
+            max-width: 340px;
+            width: 100%;
+        }
+        .paper-search input {
+            width: 100%;
+            padding: 0.4rem 2rem 0.4rem 2rem;
+            border: 1px solid #ddd;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-family: inherit;
+            color: #444;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .paper-search input:focus {
+            border-color: #3273dc;
+            box-shadow: 0 0 0 3px rgba(50, 115, 220, 0.12);
+        }
+        .paper-search .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            color: #bbb;
+            pointer-events: none;
+        }
+        .paper-search .search-clear {
+            position: absolute;
+            right: 0.6rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            color: #bbb;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: none;
+        }
+        .paper-search .search-clear:hover { color: #666; }
+
+        .paper-selector {
+            display: flex;
+            justify-content: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            max-height: 190px;
+            overflow-y: auto;
+            padding: 0.15rem;
+        }
+        .paper-selector button {
+            padding: 0.35rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #555;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+        .paper-selector button .sub-name {
+            color: #999;
+            font-weight: 400;
+        }
+        .paper-selector button.active {
+            background: #363636;
+            color: #fff;
+            border-color: #363636;
+        }
+        .paper-selector button.active .sub-name { color: #c9c9c9; }
+        .paper-selector button:not(.active):hover {
+            background: #f0f0f0;
+            border-color: #c9c9c9;
+        }
+        .paper-selector .no-match {
+            font-size: 0.8rem;
+            color: #aaa;
+            padding: 0.5rem;
+        }
+
+        /* Viewer toolbar */
+        .viewer-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e0e0e0;
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            background: #f8f9fa;
+        }
+        .viewer-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #363636;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+        .viewer-title .domain-chip {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #3273dc;
+            background: #eaf1fc;
+            border-radius: 4px;
+            padding: 2px 6px;
+            white-space: nowrap;
+        }
+        .viewer-title .viewer-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .viewer-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .tool-btn {
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #666;
+            border-radius: 6px;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.72rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-decoration: none;
+        }
+        .tool-btn:hover {
+            background: #f0f4fa;
+            border-color: #3273dc;
+            color: #3273dc;
+        }
+        .tool-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .tool-btn:disabled:hover {
+            background: #fff;
+            border-color: #ddd;
+            color: #666;
+        }
+        .paper-counter {
+            font-size: 0.72rem;
+            color: #999;
+            min-width: 4.5rem;
+            text-align: center;
+        }
+
+        .pdf-viewer-container {
+            border: 1px solid #e0e0e0;
+            border-radius: 0 0 10px 10px;
+            overflow-y: auto;
+            height: 750px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            background: #525659;
+            padding: 0.75rem 0;
+            resize: vertical;
+            min-height: 300px;
+        }
+        .pdf-page {
+            position: relative;
+            margin: 0.6rem auto;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        }
+        .pdf-page canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .pdf-page .page-num {
+            position: absolute;
+            right: -2.6rem;
+            top: 0.25rem;
+            font-size: 0.65rem;
+            color: #b9bcc0;
+        }
+        .viewer-message {
+            text-align: center;
+            color: #d7d9db;
+            padding: 3rem 1rem;
+            font-size: 0.9rem;
+        }
+        .viewer-message a { color: #9ec5fe; }
+
+        /* Author list */
+        .author-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.25rem 1rem;
+            margin-top: 0.5rem;
+        }
+        .author-list .author-block { font-size: 1rem; }
+
+        /* Domain coverage cards */
+        .domain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 0.9rem;
+        }
+        .domain-card {
+            background: #fff;
+            border: 1px solid #ececec;
+            border-radius: 10px;
+            padding: 1rem 1.1rem;
+            text-align: left;
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer;
+        }
+        .domain-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+        }
+        .domain-card .domain-name {
+            font-weight: 600;
+            color: #363636;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        .domain-card .domain-count {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #3273dc;
+        }
+        .domain-card .domain-subs {
+            margin-top: 0.4rem;
+            font-size: 0.75rem;
+            color: #999;
+            line-height: 1.5;
+        }
+
+        /* ---------- Sticky section nav ---------- */
+        .section-nav {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: saturate(180%) blur(10px);
+            border-bottom: 1px solid #ececec;
+        }
+        .section-nav .nav-inner {
+            display: flex;
+            justify-content: center;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            padding: 0.5rem 1rem;
+        }
+        .section-nav a {
+            flex: 0 0 auto;
+            white-space: nowrap;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #888;
+            padding: 0.35rem 0.7rem;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .section-nav a:hover { background: #f0f4fa; color: #3273dc; }
+
+        html { scroll-behavior: smooth; }
+        section[id] { scroll-margin-top: 3.5rem; }
+
+        /* ---------- Hero headline stats ---------- */
+        /* Four tiles laid out on a 6-column track: the two rating/audit tiles
+           are twice as wide because they carry a second line of detail. */
+        .stat-ribbon {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.75rem;
+            margin: 1.75rem auto 0;
+            max-width: 940px;
+        }
+        .stat-ribbon .stat-cell {
+            display: flex;
+            flex-direction: column;
+            /* Top-aligned so the big numbers line up across tiles of unequal
+               content height. */
+            justify-content: flex-start;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 10px;
+            padding: 0.85rem 0.6rem;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .stat-ribbon .stat-cell.is-wide { grid-column: span 2; }
+        .stat-ribbon .stat-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+        }
+        .stat-ribbon .stat-num {
+            font-size: 1.7rem;
+            font-weight: 700;
+            line-height: 1.1;
+            color: #3273dc;
+        }
+        .stat-ribbon .stat-den {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #9db6e2;
+        }
+        .stat-ribbon .stat-cap {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #999;
+            margin-top: 0.3rem;
+        }
+        .stat-ribbon .stat-foot {
+            font-size: 0.68rem;
+            line-height: 1.35;
+            color: #aaa;
+            margin-top: 0.35rem;
+        }
+        /* Two reviewers side by side inside a single tile. */
+        .stat-ribbon .dual-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.9rem;
+        }
+        .stat-ribbon .dual-row .dual-item { flex: 1 1 0; }
+        .stat-ribbon .dual-row .dual-item + .dual-item {
+            border-left: 1px solid #ececec;
+            padding-left: 0.9rem;
+        }
+        .stat-ribbon .dual-lbl {
+            font-size: 0.66rem;
+            font-weight: 600;
+            color: #888;
+            line-height: 1.3;
+            margin-top: 0.2rem;
+        }
+        /* Plain-language gloss so the audit means something at first glance. */
+        .stat-legend {
+            max-width: 780px;
+            margin: 0.9rem auto 0;
+            font-size: 0.78rem;
+            line-height: 1.6;
+            color: #7a8794;
+        }
+        .stat-legend .fa-shield-halved { color: #1f9254; margin-right: 0.3rem; }
+        .stat-legend strong { color: #5a6c7d; }
+
+        /* ---------- Section eyebrow label ---------- */
+        .eyebrow {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #3273dc;
+            margin-bottom: 0.35rem;
+        }
+
+        /* ---------- Figure cards ---------- */
+        .figure-card {
+            background: #fff;
+            border: 1px solid #ececec;
+            border-radius: 12px;
+            padding: 1.1rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+        .figure-card img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .figure-card figcaption {
+            font-size: 0.82rem;
+            color: #777;
+            line-height: 1.55;
+            margin-top: 0.85rem;
+            text-align: left;
+        }
+        .figure-card figcaption strong { color: #555; }
+        .fig-link {
+            font-size: 0.72rem;
+            color: #3273dc;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .fig-link:hover { text-decoration: underline; }
+
+        /* ---------- Demo video ---------- */
+        /* Dark band: the demo sits between two light sections and the captured
+           UI is dark, so this separates it without reflowing the alternating
+           white/#fafafa rhythm of every section below it. */
+        #demo { background: #22303f; }
+        #demo .eyebrow { color: #7fb3f0; }
+        #demo .title { color: #fff; }
+        #demo .content p { color: #c3cedb; }
+        .video-card {
+            background: #1a2632;
+            border-color: #31404f;
+            box-shadow: 0 10px 34px rgba(0, 0, 0, 0.30);
+        }
+        .video-card video {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            background: #000;
+        }
+        .video-card figcaption { color: #93a2b2; }
+        .video-card figcaption strong { color: #d7e0e9; }
+        /* Bulma's default <code> is a light pill, jarring on the dark card. */
+        .video-card figcaption code {
+            background: #2b3a4a;
+            color: #e7b1b8;
+            font-size: 0.92em;
+            padding: 0.05em 0.35em;
+            border-radius: 4px;
+        }
+        .video-card .fig-link { color: #7fb3f0; }
+
+        /* ---------- Pillar cards (system overview) ---------- */
+        .pillar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-top: 1.75rem;
+        }
+        .pillar-card {
+            background: #fff;
+            border: 1px solid #ececec;
+            border-top: 3px solid #3273dc;
+            border-radius: 10px;
+            padding: 1.15rem 1.25rem;
+            text-align: left;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .pillar-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+        }
+        .pillar-card .pillar-icon {
+            color: #3273dc;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+        .pillar-card .pillar-title {
+            font-weight: 700;
+            color: #363636;
+            font-size: 0.95rem;
+            margin-bottom: 0.4rem;
+        }
+        .pillar-card .pillar-text {
+            font-size: 0.85rem;
+            color: #777;
+            line-height: 1.6;
+        }
+
+        /* ---------- Results tables ---------- */
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.25rem;
+        }
+        .results-table {
+            font-size: 0.85rem;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+            white-space: nowrap;
+        }
+        /* Corners are rounded per-cell rather than with `overflow: hidden`,
+           which would cancel the sticky label column. */
+        .results-table thead tr:first-child th:first-child { border-top-left-radius: 10px; }
+        .results-table thead tr:first-child th:last-child { border-top-right-radius: 10px; }
+        .results-table tbody tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+        .results-table tbody tr:last-child td:last-child { border-bottom-right-radius: 10px; }
+        .results-table tbody tr:last-child td { border-bottom: none; }
+        .results-table thead th { color: #555; }
+        .results-table thead th.spans {
+            border-bottom: 1px solid #dbdbdb;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .results-table td.name,
+        .results-table th.name { text-align: left; }
+        /* Thin divider between the two column groups. In both tables the
+           second group starts at column 5. */
+        .results-table tr .group-start,
+        .results-table tbody tr:not(.group-row) td:nth-child(5) {
+            border-left: 1px solid #ececec;
+        }
+        .results-table .group-row td {
+            text-align: left;
+            background: #fbfbfb;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #a0a0a0;
+            padding-top: 0.6rem;
+            padding-bottom: 0.6rem;
+        }
+        .results-table .row-ours { background-color: #eef4fd; }
+        .results-table .row-ours td { border-top: 2px solid #3273dc; }
+        .results-table .row-ours td { color: #1c4f9c; font-weight: 700; }
+        .results-table .best { font-weight: 700; }
+        .results-table .sd {
+            color: #a8a8a8;
+            font-size: 0.78em;
+            font-weight: 400;
+        }
+        .results-table .row-ours .sd { color: #6b93d4; }
+        .results-table td.yes, .results-table .row-ours td.yes { color: #1f9254; }
+        .results-table td.no,  .results-table .row-ours td.no  { color: #d64545; }
+        .table-note {
+            font-size: 0.8rem;
+            color: #999;
+            line-height: 1.55;
+            margin-top: 0.9rem;
+            text-align: center;
+        }
+
+        /* ---------- Takeaway callout ---------- */
+        .takeaway {
+            display: flex;
+            gap: 0.85rem;
+            align-items: flex-start;
+            background: linear-gradient(135deg, #f6f9fc 0%, #eef2f7 100%);
+            border-left: 4px solid #3273dc;
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+        .takeaway .takeaway-icon { color: #3273dc; margin-top: 0.15rem; }
+        .takeaway p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #4a4a4a;
+            line-height: 1.6;
+        }
+
+        @media screen and (max-width: 768px) {
+            .pdf-page .page-num { display: none; }
+            .pdf-viewer-container { height: 520px; }
+            .viewer-toolbar { justify-content: center; }
+            .stat-ribbon .stat-num { font-size: 1.4rem; }
+            /* 6 narrow columns do not fit a phone: 2 up, wide tiles full width. */
+            .stat-ribbon { grid-template-columns: repeat(2, 1fr); }
+            .stat-ribbon .stat-cell.is-wide { grid-column: span 2; }
+
+            /* Keep the sticky nav one line tall: scroll it instead of wrapping. */
+            .section-nav .nav-inner {
+                gap: 0;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                justify-content: flex-start;
+                scrollbar-width: none;
+            }
+            .section-nav .nav-inner::-webkit-scrollbar { display: none; }
+            .section-nav a { font-size: 0.68rem; padding: 0.3rem 0.5rem; }
+
+            /* Pin the row-label column while the rest of the table scrolls. */
+            .results-table .name {
+                position: sticky;
+                left: 0;
+                z-index: 1;
+                background: #fff;
+                border-right: 1px solid #ececec;
+            }
+            .results-table thead .name { background: #f5f5f5; }
+            .results-table .row-ours .name { background: #eef4fd; }
+        }
+    </style>
+
+
+    <style>
+        /* ---- ElasticMem-specific overrides ---- */
+        .results-table tbody tr:not(.group-row) td:nth-child(5) { border-left: none; }
+        .results-table .group-start { border-left: 1px solid #ececec; }
+        .results-table .second { text-decoration: underline; text-underline-offset: 3px; }
+        .results-table .backbone-row td {
+            text-align: left; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.04em;
+            background: #16243a; color: #fff; padding: 0.45rem 0.75rem;
+        }
+        .main-table { font-size: 0.82rem; }
+        .main-table td, .main-table th { white-space: nowrap; }
+        .hero-logo { max-width: 360px; width: 70%; margin: 0 auto 1.25rem; display: block; }
+        .affil { font-size: 0.95rem; color: #666; }
+        .affil sup, .author-block sup { font-size: 0.7em; }
+        .stage-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.9rem; margin-top: 1.5rem; }
+        .stage-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 1rem 0.9rem; }
+        .stage-card .stage-num {
+            display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%;
+            background: #2f86f6; color: #fff; font-weight: 700; font-size: 0.85rem;
+            align-items: center; justify-content: center; margin-bottom: 0.5rem;
+        }
+        .stage-card .stage-title { font-weight: 700; color: #16243a; margin-bottom: 0.35rem; font-size: 0.98rem; }
+        .stage-card p { font-size: 0.86rem; color: #555; line-height: 1.5; }
+        .ablation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; margin-top: 1.25rem; }
+        .ablation-grid figure { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 0.75rem; margin: 0; }
+        .ablation-grid img { width: 100%; display: block; }
+        .ablation-grid figcaption { font-size: 0.82rem; color: #666; margin-top: 0.5rem; line-height: 1.45; }
+        .ablation-grid figcaption strong { color: #333; }
+        .controlled-table { font-size: 0.9rem; }
+        #BibTeX pre { white-space: pre-wrap; word-break: break-word; }
+        .controlled-table td:not(.name), .controlled-table th:not(.name) { text-align: center; }
+        @media (max-width: 900px) {
+            .stage-grid { grid-template-columns: repeat(2, 1fr); }
+            .ablation-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- ==================== HERO ==================== -->
+    <section class="hero">
+        <div class="hero-body" style="padding-bottom: 1rem;">
+            <div class="container is-max-desktop">
+                <div class="columns is-centered">
+                    <div class="column has-text-centered">
+                        <img class="hero-logo" src="./static/images/logo.svg" alt="ElasticMem logo">
+                        <h1 class="title is-1 publication-title">
+                            <span style="font-size: xx-large;">
+                                ElasticMem: Latent Memory as a Learnable Resource for LLM Agents
+                            </span>
+                        </h1>
+
+                        <div class="is-size-5 publication-authors author-list">
+                            <span class="author-block">Tao Feng<sup>1</sup></span>
+<span class="author-block">Chongrui Ye<sup>1</sup></span>
+<span class="author-block">Fangxu Yu<sup>2</sup></span>
+<span class="author-block">Tianyang Luo<sup>1</sup></span>
+<span class="author-block">Jingjun Xu<sup>1</sup></span>
+<span class="author-block">Xueqiang Xu<sup>1</sup></span>
+<span class="author-block">Haozhen Zhang<sup>3</sup></span>
+<span class="author-block">Weizhi Zhang<sup>4</sup></span>
+<span class="author-block">Zijie Lei<sup>1</sup></span>
+<span class="author-block">Jiaxuan You<sup>1</sup></span>
+                        </div>
+                        <div class="publication-authors affil" style="margin-top: 0.25rem;">
+                            <sup>1</sup>University of Illinois Urbana-Champaign&nbsp;&nbsp;<sup>2</sup>University of Maryland, College Park&nbsp;&nbsp;<sup>3</sup>Nanyang Technological University&nbsp;&nbsp;<sup>4</sup>University of Illinois Chicago
+                        </div>
+
+                        <div class="has-text-centered" style="margin-top: 0.75rem;">
+                            <div class="publication-links">
+                                <span class="link-block">
+                                    <a href="https://arxiv.org/abs/2605.30690" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noopener noreferrer">
+                                        <span class="icon"><i class="ai ai-arxiv"></i></span><span>arXiv</span>
+                                    </a>
+                                </span>
+                                <span class="link-block">
+                                    <a href="https://arxiv.org/pdf/2605.30690" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noopener noreferrer">
+                                        <span class="icon"><i class="fas fa-file-pdf"></i></span><span>Paper</span>
+                                    </a>
+                                </span>
+                                <span class="link-block">
+                                    <a href="https://github.com/ulab-uiuc/ElasticMem" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noopener noreferrer">
+                                        <span class="icon"><i class="fab fa-github"></i></span><span>Code</span>
+                                    </a>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Headline numbers (Table 1 of the paper, weighted averages vs. strongest baseline) -->
+                        <div class="stat-ribbon">
+                            <div class="stat-cell is-wide">
+                                <div class="dual-row">
+                                    <div class="dual-item"><div class="stat-num">0.742</div><div class="dual-lbl">Qwen2.5-3B</div></div>
+                                    <div class="dual-item"><div class="stat-num">0.832</div><div class="dual-lbl">Qwen2.5-7B</div></div>
+                                </div>
+                                <div class="stat-cap">Weighted QA Accuracy</div>
+                                <div class="stat-foot">+26.2% and +24.6% over the strongest baseline (0.588 / 0.668).</div>
+                            </div>
+                            <div class="stat-cell is-wide">
+                                <div class="dual-row">
+                                    <div class="dual-item"><div class="stat-num">0.449</div><div class="dual-lbl">Qwen2.5-3B</div></div>
+                                    <div class="dual-item"><div class="stat-num">0.529</div><div class="dual-lbl">Qwen2.5-7B</div></div>
+                                </div>
+                                <div class="stat-cap">Weighted ALFWorld Success</div>
+                                <div class="stat-foot">+66.3% and +27.2% over the strongest baseline (0.270 / 0.416).</div>
+                            </div>
+                            <div class="stat-cell is-wide">
+                                <div class="dual-row">
+                                    <div class="dual-item"><div class="stat-num">11.9K</div><div class="dual-lbl">Qwen2.5-3B</div></div>
+                                    <div class="dual-item"><div class="stat-num">9.0K</div><div class="dual-lbl">Qwen2.5-7B</div></div>
+                                </div>
+                                <div class="stat-cap">ALFWorld Tokens / Episode</div>
+                                <div class="stat-foot">Lowest weighted token consumption of all compared methods.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== STICKY SECTION NAV ==================== -->
+    <nav class="section-nav">
+        <div class="nav-inner">
+            <a href="#abstract">Abstract</a>
+            <a href="#method">Method</a>
+            <a href="#results">Results</a>
+            <a href="#controlled">Controlled</a>
+            <a href="#ablations">Ablations</a>
+            <a href="#BibTeX">BibTeX</a>
+        </div>
+    </nav>
+
+    <!-- ==================== ABSTRACT ==================== -->
+    <section class="section" id="abstract" style="padding-top: 2.5rem;">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered has-text-centered">
+                <div class="column is-four-fifths">
+                    <p class="eyebrow">Abstract</p>
+                    <h2 class="title is-3">Memory Should Scale with What the Query Needs</h2>
+                    <div class="content has-text-justified" style="margin-top: 1rem;">
+                        <p>
+                            Long-term memory is essential for LLM agents to reason coherently across extended interactions,
+                            personalize responses, and reuse past experience. Existing memory-augmented methods typically treat
+                            memory as a <strong>fixed resource</strong>: text-space approaches concatenate retrieved memories into
+                            the context window, causing substantial token overhead and sensitivity to noisy evidence, while
+                            latent-space approaches reduce textual cost but still rely on rigid retrieval or fixed-capacity memory
+                            interfaces. This creates a mismatch between query-dependent memory utility and fixed memory allocation.
+                        </p>
+                        <p>
+                            We propose <strong>ElasticMem</strong>, a memory-augmented LLM framework that learns to use memory as
+                            an <strong>elastic latent resource</strong>. ElasticMem builds an offline latent memory bank with
+                            retrieval keys and content caches, retrieves memories adaptively from the reasoner's hidden state,
+                            assigns each retrieved memory a variable latent budget through a learned policy, and injects selected
+                            latent states as soft memory tokens for generation. The full memory-use process is optimized with
+                            downstream task rewards through group-relative policy optimization.
+                        </p>
+                        <p>
+                            On <strong>MemorySuite</strong>, covering memory-intensive QA and embodied agent control, ElasticMem
+                            improves weighted QA accuracy by <strong>26.2%</strong> and <strong>24.6%</strong>, and ALFWorld
+                            success rate by <strong>66.3%</strong> and <strong>27.2%</strong>, over the strongest baselines with
+                            Qwen2.5-3B-Instruct and Qwen2.5-7B-Instruct, while achieving the lowest weighted-average ALFWorld token
+                            consumption.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== METHOD ==================== -->
+    <section class="section" id="method" style="background-color: #fafafa;">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered has-text-centered">
+                <div class="column is-four-fifths">
+                    <p class="eyebrow">How It Works</p>
+                    <h2 class="title is-3">Retrieve Adaptively, Allocate Elastically, Train End-to-End</h2>
+                    <div class="content has-text-justified" style="margin-top: 1rem;">
+                        <p>
+                            Memories are encoded once into a frozen latent bank. At query time, the LoRA-adapted reasoner emits a
+                            retrieval-control token whose hidden state drives retrieval; a budget policy decides how many latent
+                            states each retrieved chunk contributes; and a projector turns those states into soft memory tokens.
+                            Reasoner, policy, and projector are trained jointly with GRPO on task reward.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <figure class="figure-card">
+                <img src="./static/images/overview.png" alt="ElasticMem overview: offline latent memory bank construction; per-query retrieval from the reasoner's hidden state, elastic latent budget allocation, and latent memory injection; GRPO training loop.">
+                <figcaption>
+                    <strong>Overview of ElasticMem.</strong> Left: each memory chunk (dialogue, passage, or skill card) is encoded
+                    once by a frozen LLM into a retrieval key <em>k<sub>i</sub></em> and a content cache <em>C<sub>i</sub></em>.
+                    Right: the reasoner's query state retrieves the top-<em>Z</em> chunks, the budget policy assigns each chunk
+                    <em>b<sub>j</sub></em> latent tokens, and the projector injects them as soft memory tokens. Bottom: the
+                    reasoner, budget policy, and projector are optimized with group-relative policy optimization.
+                </figcaption>
+            </figure>
+
+            <div class="stage-grid">
+                <div class="stage-card">
+                    <div class="stage-num">1</div>
+                    <div class="stage-title">Latent Memory Bank</div>
+                    <p>Each chunk is encoded once by a frozen LLM: its last hidden state is the retrieval key, its last
+                       <em>N<sub>c</sub></em> states form the content cache. The bank is never updated during training.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-num">2</div>
+                    <div class="stage-title">Query-Conditioned Retrieval</div>
+                    <p>The reasoner samples a retrieval-control token; the resulting hidden state is the query, so retrieval
+                       is learned with the task rather than fixed to an external encoder.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-num">3</div>
+                    <div class="stage-title">Elastic Budget Allocation</div>
+                    <p>A Transformer policy reads the query state, keys, similarities, and earlier decisions, and gives each
+                       retrieved chunk a budget <em>b<sub>j</sub></em> &isin; {0, &hellip;, B<sub>max</sub>}. Useful evidence
+                       gets more capacity; weak chunks are compressed or dropped.</p>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-num">4</div>
+                    <div class="stage-title">Injection + GRPO</div>
+                    <p>The last <em>b<sub>j</sub></em> cached states of each chunk are projected into soft memory tokens.
+                       Reward (exact match for QA, expert-action agreement for ALFWorld) trains reasoner, policy, and
+                       projector together.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== MAIN RESULTS ==================== -->
+    <section class="section" id="results">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered has-text-centered">
+                <div class="column is-four-fifths">
+                    <p class="eyebrow">Main Results</p>
+                    <h2 class="title is-3">Best Accuracy and Success Across MemorySuite</h2>
+                    <div class="content has-text-justified" style="margin-top: 1rem;">
+                        <p>
+                            We compare against seven text-space memory methods (MemoryBank, A-MEM, LightMem, Mem0, MemoryOS,
+                            MemP, LangMem) and three latent-space methods (MemGen, AutoCompressor, M+), all on the same backbones.
+                            Latent-space baselines are retrained on each task's training split with the same supervision.
+                            Scores are means over five training seeds; <strong>bold</strong> marks the best and
+                            <u>underline</u> the second best within each backbone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="title is-5 has-text-centered" style="margin-top: 0.5rem;">Memory QA &mdash; Accuracy and Tokens</h3>
+            <div class="table-wrap"><table class="results-table main-table"><thead><tr><th class="name" rowspan="2">Method</th><th class="spans" colspan="2">PersonaMem-32K</th><th class="spans group-start" colspan="2">PersonaMem-128K</th><th class="spans group-start" colspan="2">LoCoMo</th><th class="spans group-start" colspan="2">LongMemEval</th><th class="spans group-start" colspan="2">Avg.</th></tr><tr><th>Acc. &uarr;</th><th>#Tok. &darr;</th><th class="group-start">Acc. &uarr;</th><th>#Tok. &darr;</th><th class="group-start">Acc. &uarr;</th><th>#Tok. &darr;</th><th class="group-start">Acc. &uarr;</th><th>#Tok. &darr;</th><th class="group-start">Acc. &uarr;</th><th>#Tok. &darr;</th></tr></thead><tbody><tr class="backbone-row"><td colspan="11">Qwen2.5-3B-Instruct</td></tr><tr class="group-row"><td colspan="11">Text-space memory</td></tr><tr><td class="name">MemoryBank</td><td>0.50</td><td>2,473</td><td class="group-start">0.33</td><td>4,618</td><td class="group-start">0.41</td><td>2,202</td><td class="group-start">0.29</td><td>9,591</td><td class="group-start">0.37</td><td>4,089</td></tr><tr><td class="name">A-MEM</td><td>0.48</td><td>4,899</td><td class="group-start">0.38</td><td>3,530</td><td class="group-start">0.39</td><td>3,348</td><td class="group-start">0.45</td><td>15,625</td><td class="group-start">0.40</td><td>5,282</td></tr><tr><td class="name">LightMem</td><td>0.46</td><td>851</td><td class="group-start">0.35</td><td>1,306</td><td class="group-start">0.40</td><td>3,468</td><td class="group-start">0.44</td><td>1,248</td><td class="group-start">0.39</td><td>2,239</td></tr><tr><td class="name">Mem0</td><td>0.42</td><td>778</td><td class="group-start">0.39</td><td>662</td><td class="group-start">0.33</td><td>836</td><td class="group-start">0.33</td><td>2,843</td><td class="group-start">0.36</td><td>1,062</td></tr><tr><td class="name">MemoryOS</td><td>0.48</td><td>4,419</td><td class="group-start">0.32</td><td>9,440</td><td class="group-start">0.33</td><td>4,420</td><td class="group-start">0.40</td><td>13,854</td><td class="group-start">0.35</td><td>7,452</td></tr><tr><td class="name">MemP</td><td>0.42</td><td>12,002</td><td class="group-start">0.38</td><td>29,567</td><td class="group-start">0.26</td><td>5,140</td><td class="group-start">0.41</td><td>26,571</td><td class="group-start">0.33</td><td>16,873</td></tr><tr><td class="name">LangMem</td><td>0.40</td><td>675</td><td class="group-start">0.30</td><td>1,626</td><td class="group-start">0.40</td><td>936</td><td class="group-start">0.28</td><td>687</td><td class="group-start">0.35</td><td>1,112</td></tr><tr class="group-row"><td colspan="11">Latent-space memory</td></tr><tr><td class="name">MemGen</td><td class="second">0.62</td><td class="second">502</td><td class="group-start second">0.58</td><td class="second">393</td><td class="group-start second">0.60</td><td class="second">198</td><td class="group-start second">0.55</td><td class="second">242</td><td class="group-start second">0.59</td><td class="second">291</td></tr><tr><td class="name">AutoCompressor</td><td>0.48</td><td>717</td><td class="group-start">0.45</td><td>1,127</td><td class="group-start">0.47</td><td>234</td><td class="group-start">0.44</td><td>998</td><td class="group-start">0.46</td><td>677</td></tr><tr><td class="name">M+</td><td>0.56</td><td class="best">447</td><td class="group-start">0.52</td><td class="best">350</td><td class="group-start">0.54</td><td class="best">154</td><td class="group-start">0.50</td><td class="best">198</td><td class="group-start">0.53</td><td class="best">247</td></tr><tr class="row-ours"><td class="name">ElasticMem</td><td class="best">0.74</td><td>537</td><td class="group-start best">0.77</td><td>682</td><td class="group-start best">0.74</td><td>577</td><td class="group-start best">0.68</td><td>433</td><td class="group-start best">0.74</td><td>589</td></tr><tr class="backbone-row"><td colspan="11">Qwen2.5-7B-Instruct</td></tr><tr class="group-row"><td colspan="11">Text-space memory</td></tr><tr><td class="name">MemoryBank</td><td>0.53</td><td>2,639</td><td class="group-start">0.35</td><td>4,724</td><td class="group-start">0.40</td><td>2,301</td><td class="group-start">0.39</td><td>10,822</td><td class="group-start">0.39</td><td>4,358</td></tr><tr><td class="name">A-MEM</td><td>0.52</td><td>9,731</td><td class="group-start">0.37</td><td>11,098</td><td class="group-start">0.42</td><td>3,289</td><td class="group-start">0.50</td><td>31,489</td><td class="group-start">0.42</td><td>10,408</td></tr><tr><td class="name">LightMem</td><td>0.52</td><td>864</td><td class="group-start">0.33</td><td>1,228</td><td class="group-start">0.41</td><td>3,702</td><td class="group-start">0.53</td><td>939</td><td class="group-start">0.41</td><td>2,275</td></tr><tr><td class="name">Mem0</td><td>0.54</td><td>794</td><td class="group-start">0.39</td><td>676</td><td class="group-start">0.38</td><td>921</td><td class="group-start">0.48</td><td>3,202</td><td class="group-start">0.41</td><td>1,157</td></tr><tr><td class="name">MemoryOS</td><td>0.52</td><td>4,695</td><td class="group-start">0.38</td><td>9,748</td><td class="group-start">0.42</td><td>4,998</td><td class="group-start">0.53</td><td>14,489</td><td class="group-start">0.43</td><td>7,926</td></tr><tr><td class="name">MemP</td><td>0.52</td><td>11,964</td><td class="group-start">0.40</td><td>29,581</td><td class="group-start">0.22</td><td>5,382</td><td class="group-start">0.48</td><td>26,580</td><td class="group-start">0.34</td><td>16,985</td></tr><tr><td class="name">LangMem</td><td>0.68</td><td>1,359</td><td class="group-start">0.42</td><td>3,097</td><td class="group-start">0.35</td><td>1,478</td><td class="group-start">0.42</td><td>781</td><td class="group-start">0.41</td><td>1,911</td></tr><tr class="group-row"><td colspan="11">Latent-space memory</td></tr><tr><td class="name">MemGen</td><td class="second">0.70</td><td>502</td><td class="group-start second">0.66</td><td class="second">393</td><td class="group-start second">0.68</td><td class="second">198</td><td class="group-start second">0.63</td><td class="second">242</td><td class="group-start second">0.67</td><td class="second">291</td></tr><tr><td class="name">AutoCompressor</td><td>0.56</td><td>717</td><td class="group-start">0.52</td><td>1,127</td><td class="group-start">0.55</td><td>234</td><td class="group-start">0.51</td><td>998</td><td class="group-start">0.54</td><td>677</td></tr><tr><td class="name">M+</td><td>0.64</td><td class="best">447</td><td class="group-start">0.59</td><td class="best">350</td><td class="group-start">0.62</td><td class="best">154</td><td class="group-start">0.57</td><td class="best">198</td><td class="group-start">0.60</td><td class="best">247</td></tr><tr class="row-ours"><td class="name">ElasticMem</td><td class="best">0.90</td><td class="second">483</td><td class="group-start best">0.84</td><td>557</td><td class="group-start best">0.84</td><td>362</td><td class="group-start best">0.76</td><td>410</td><td class="group-start best">0.83</td><td>443</td></tr></tbody></table></div>
+
+            <h3 class="title is-5 has-text-centered" style="margin-top: 2rem;">ALFWorld &mdash; Success Rate and Tokens</h3>
+            <div class="table-wrap"><table class="results-table main-table"><thead><tr><th class="name" rowspan="2">Method</th><th class="spans" colspan="2">ALF-Seen</th><th class="spans group-start" colspan="2">ALF-Unseen</th><th class="spans group-start" colspan="2">Avg.</th></tr><tr><th>SR &uarr;</th><th>#Tok. &darr;</th><th class="group-start">SR &uarr;</th><th>#Tok. &darr;</th><th class="group-start">SR &uarr;</th><th>#Tok. &darr;</th></tr></thead><tbody><tr class="backbone-row"><td colspan="7">Qwen2.5-3B-Instruct</td></tr><tr class="group-row"><td colspan="7">Text-space memory</td></tr><tr><td class="name">MemoryBank</td><td>0.06</td><td>76,016</td><td class="group-start">0.09</td><td>71,173</td><td class="group-start">0.08</td><td>73,648</td></tr><tr><td class="name">A-MEM</td><td>0.04</td><td>17,239</td><td class="group-start">0.05</td><td>14,248</td><td class="group-start">0.04</td><td>15,776</td></tr><tr><td class="name">LightMem</td><td>0.14</td><td>13,252</td><td class="group-start">0.17</td><td class="second">12,617</td><td class="group-start">0.15</td><td>12,941</td></tr><tr><td class="name">Mem0</td><td>0.14</td><td>43,055</td><td class="group-start">0.12</td><td>43,677</td><td class="group-start">0.13</td><td>43,359</td></tr><tr><td class="name">MemoryOS</td><td>0.11</td><td>68,131</td><td class="group-start">0.13</td><td>65,845</td><td class="group-start">0.12</td><td>67,013</td></tr><tr><td class="name">MemP</td><td>0.11</td><td>101,580</td><td class="group-start">0.10</td><td>110,019</td><td class="group-start">0.11</td><td>105,707</td></tr><tr><td class="name">LangMem</td><td>0.20</td><td class="second">12,276</td><td class="group-start">0.11</td><td class="best">12,449</td><td class="group-start">0.15</td><td class="second">12,361</td></tr><tr class="group-row"><td colspan="7">Latent-space memory</td></tr><tr><td class="name">MemGen</td><td class="second">0.29</td><td>14,708</td><td class="group-start second">0.25</td><td>14,416</td><td class="group-start second">0.27</td><td>14,565</td></tr><tr><td class="name">AutoCompressor</td><td>0.16</td><td>21,145</td><td class="group-start">0.13</td><td>21,571</td><td class="group-start">0.14</td><td>21,353</td></tr><tr><td class="name">M+</td><td>0.20</td><td>14,246</td><td class="group-start">0.16</td><td>14,233</td><td class="group-start">0.18</td><td>14,240</td></tr><tr class="row-ours"><td class="name">ElasticMem</td><td class="best">0.49</td><td class="best">11,028</td><td class="group-start best">0.41</td><td>12,846</td><td class="group-start best">0.45</td><td class="best">11,917</td></tr><tr class="backbone-row"><td colspan="7">Qwen2.5-7B-Instruct</td></tr><tr class="group-row"><td colspan="7">Text-space memory</td></tr><tr><td class="name">MemoryBank</td><td>0.11</td><td>36,602</td><td class="group-start">0.19</td><td>39,385</td><td class="group-start">0.15</td><td>37,963</td></tr><tr><td class="name">A-MEM</td><td>0.06</td><td>29,543</td><td class="group-start">0.09</td><td>29,531</td><td class="group-start">0.07</td><td>29,537</td></tr><tr><td class="name">LightMem</td><td>0.33</td><td>11,150</td><td class="group-start">0.37</td><td>10,617</td><td class="group-start">0.35</td><td>10,889</td></tr><tr><td class="name">Mem0</td><td class="second">0.43</td><td>26,165</td><td class="group-start second">0.40</td><td>27,327</td><td class="group-start second">0.42</td><td>26,733</td></tr><tr><td class="name">MemoryOS</td><td>0.38</td><td>60,129</td><td class="group-start second">0.40</td><td>50,238</td><td class="group-start">0.39</td><td>55,292</td></tr><tr><td class="name">MemP</td><td>0.24</td><td>143,768</td><td class="group-start">0.22</td><td>115,492</td><td class="group-start">0.23</td><td>129,940</td></tr><tr><td class="name">LangMem</td><td>0.40</td><td class="second">9,735</td><td class="group-start">0.28</td><td class="second">10,140</td><td class="group-start">0.34</td><td class="second">9,933</td></tr><tr class="group-row"><td colspan="7">Latent-space memory</td></tr><tr><td class="name">MemGen</td><td>0.39</td><td>12,933</td><td class="group-start">0.34</td><td>13,551</td><td class="group-start">0.36</td><td>13,235</td></tr><tr><td class="name">AutoCompressor</td><td>0.24</td><td>19,875</td><td class="group-start">0.20</td><td>19,317</td><td class="group-start">0.22</td><td>19,602</td></tr><tr><td class="name">M+</td><td>0.32</td><td>12,520</td><td class="group-start">0.28</td><td>13,382</td><td class="group-start">0.30</td><td>12,942</td></tr><tr class="row-ours"><td class="name">ElasticMem</td><td class="best">0.56</td><td class="best">9,035</td><td class="group-start best">0.49</td><td class="best">9,031</td><td class="group-start best">0.53</td><td class="best">9,033</td></tr></tbody></table></div>
+
+            <p class="table-note">
+                #Tok. counts task-text input, injected memory, and generated output. Avg. columns are weighted by test-set size.
+            </p>
+
+            <div class="columns is-centered">
+                <div class="column is-four-fifths">
+                    <div class="takeaway">
+                        <span class="takeaway-icon"><i class="fas fa-chart-line"></i></span>
+                        <p>
+                            ElasticMem is the best method on every split with both backbones. On ALFWorld it pairs the highest
+                            success rate with the <strong>lowest token consumption</strong>. On QA it uses far fewer tokens than
+                            text-space memory and somewhat more than MemGen and M+ (weighted 423 vs. 291 and 247), trading a
+                            modest token budget for a large accuracy gain.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== CONTROLLED COMPARISON ==================== -->
+    <section class="section" id="controlled" style="background-color: #fafafa;">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered has-text-centered">
+                <div class="column is-four-fifths">
+                    <p class="eyebrow">Controlled Comparison</p>
+                    <h2 class="title is-3">Not Just GRPO, Not Just More Parameters</h2>
+                    <div class="content has-text-justified" style="margin-top: 1rem;">
+                        <p>
+                            With Qwen2.5-7B-Instruct, all variants share data splits, source memory, retrieval count, training
+                            examples, and update count. Swapping SFT for GRPO and enlarging LoRA both help a text-memory model,
+                            but neither closes the gap to ElasticMem; replacing the learned projector with direct state injection
+                            also costs accuracy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="results-table controlled-table">
+                    <thead>
+                        <tr><th class="name">Variant</th><th>Objective</th><th>LoCoMo Acc.</th><th>ALFWorld SR</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="name">LoRA + text memory</td><td>SFT</td><td>0.599</td><td>0.380</td></tr>
+                        <tr><td class="name">LoRA + text memory</td><td>GRPO</td><td>0.650</td><td>0.420</td></tr>
+                        <tr><td class="name">Higher-rank LoRA + text memory</td><td>GRPO</td><td>0.682</td><td>0.449</td></tr>
+                        <tr><td class="name">ElasticMem with identity projector</td><td>GRPO</td><td>0.739</td><td>0.460</td></tr>
+                        <tr class="row-ours"><td class="name">Full ElasticMem</td><td>GRPO</td><td class="best">0.841</td><td class="best">0.529</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="table-note">ALFWorld SR is weighted over Seen and Unseen episodes.</p>
+        </div>
+    </section>
+
+    <!-- ==================== ABLATIONS ==================== -->
+    <section class="section" id="ablations">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered has-text-centered">
+                <div class="column is-four-fifths">
+                    <p class="eyebrow">Ablations</p>
+                    <h2 class="title is-3">Each Design Choice Earns Its Place</h2>
+                    <div class="content has-text-justified" style="margin-top: 1rem;">
+                        <p>
+                            On Qwen2.5-7B-Instruct across all five settings, the learned Transformer budget policy beats random,
+                            uniform, and MLP allocation; retrieval from the control-token state beats semantic, frozen-state, and
+                            query-only retrieval; and a per-chunk cap of <em>B<sub>max</sub></em> = 20 works best among 10&ndash;40.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="ablation-grid">
+                <figure>
+                    <img src="./static/images/budget_policy_variants.png" alt="Radar chart: ElasticMem vs Random, Uniform, and MLP budget policies across five settings.">
+                    <figcaption><strong>(a) Budget policy.</strong> The Transformer policy, which conditions on the whole
+                        retrieved set, allocates latent capacity better than random, uniform, or MLP budgets.</figcaption>
+                </figure>
+                <figure>
+                    <img src="./static/images/retrieval_variants.png" alt="Radar chart: ElasticMem vs semantic, frozen-state, and query-state retrieval.">
+                    <figcaption><strong>(b) Retrieval design.</strong> Trainable reasoner-state retrieval with a sampled
+                        retrieval-control token beats semantic, frozen-state, and query-state retrieval.</figcaption>
+                </figure>
+                <figure>
+                    <img src="./static/images/budget_max.png" alt="Performance as a function of the maximum per-chunk latent budget.">
+                    <figcaption><strong>(c) Maximum budget.</strong> With <em>N<sub>c</sub></em> = <em>B<sub>max</sub></em>,
+                        a cap of 20 latent tokens per chunk performs best; a larger allocation space does not help a policy
+                        trained on a finite budget.</figcaption>
+                </figure>
+            </div>
+            <div class="columns is-centered" style="margin-top: 1.25rem;">
+                <div class="column is-four-fifths">
+                    <div class="takeaway">
+                        <span class="takeaway-icon"><i class="fas fa-arrows-left-right"></i></span>
+                        <p>
+                            <strong>Transfer.</strong> With learned components frozen, checkpoints trained on PersonaMem-128K or
+                            ALFWorld beat the corresponding MemGen checkpoints on LoCoMo and LongMemEval by 7.3&ndash;8.9
+                            accuracy points; only the target memory bank is rebuilt. Llama-3.2-3B and Llama-3.1-8B runs also
+                            favor ElasticMem on both PersonaMem datasets.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== BIBTEX ==================== -->
+    <section class="section" id="BibTeX" style="background-color: #fafafa;">
+        <div class="container is-max-desktop content">
+            <h2 class="title">BibTeX</h2>
+            <pre><code>@article{feng2026elasticmem,
+  title   = {ElasticMem: Latent Memory as a Learnable Resource for LLM Agents},
+  author  = {Feng, Tao and Ye, Chongrui and Yu, Fangxu and Luo, Tianyang and Xu, Jingjun and Xu, Xueqiang and Zhang, Haozhen and Zhang, Weizhi and Lei, Zijie and You, Jiaxuan},
+  journal = {arXiv preprint arXiv:2605.30690},
+  year    = {2026}
+}</code></pre>
+        </div>
+    </section>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="content has-text-centered">
+                <p>
+                    Website template adapted from <a href="https://scientist-two.github.io/" target="_blank" rel="noopener noreferrer">ScientistTwo</a>
+                    and <a href="https://nerfies.github.io/" target="_blank" rel="noopener noreferrer">Nerfies</a>.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
