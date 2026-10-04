@@ -717,7 +717,13 @@
             text-align: left; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.04em;
             background: #16243a; color: #fff; padding: 0.45rem 0.75rem;
         }
-        .main-table { font-size: 0.82rem; }
+        .table-wrap { width: 100%; }
+        .results-table { width: 100%; }
+        .main-table { font-size: 0.9rem; }
+        .main-table th, .main-table td { padding: 0.55rem 0.5rem; text-align: center; }
+        .main-table td.name, .main-table th.name { text-align: left; padding-left: 0.9rem; }
+        .controlled-table { font-size: 0.95rem; }
+        .controlled-table th, .controlled-table td { padding: 0.65rem 1rem; }
         .main-table td, .main-table th { white-space: nowrap; }
         .hero-logo { max-width: 360px; width: 70%; margin: 0 auto 1.25rem; display: block; }
         .affil { font-size: 0.95rem; color: #666; }
@@ -755,7 +761,6 @@
             <div class="container is-max-desktop">
                 <div class="columns is-centered">
                     <div class="column has-text-centered">
-                        <img class="hero-logo" src="./static/images/logo.svg" alt="ElasticMem logo">
                         <h1 class="title is-1 publication-title">
                             <span style="font-size: xx-large;">
                                 ElasticMem: Latent Memory as a Learnable Resource for LLM Agents
